@@ -1,3 +1,10 @@
+# هجمات النطاق الأساسي الخلوي (الوحدة ٦.٤)
+# توسيع قدرات CellLink الحالية مع:
+# - خلية LTE وهمية (عبر srsRAN)
+# - مكتشف NAS/RRC لاكتشاف أعطال المعالج الأساسي
+# - CVE-2021-0308: تجاوز محلل SMS مع سلسلة Hexagon ROP
+# - 5Ghoul: ١٢ ثغرة عالية الخطورة في المعالج الأساسي
+# - رسائل SMS صامتة (Type 0)
 """Cellular Baseband Attacks (Module 6.4).
 
 Extends CellLink's existing GSM BTS/UE capabilities with:

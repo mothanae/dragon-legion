@@ -1,3 +1,7 @@
+# أجهزة آبل — البستان المحرم (الوحدة ٢)
+# استغلال checkm8 الدائم في BootROM (A5-A11)، سلسلة iMessage بدون تفاعل
+# (CVE-2025-31200/31201)، اختراق GrayKey مع تجاوز وضع USB المقيد،
+# وفك تشفير keychain باستخدام مفتاح GID.
 """iOS / Apple Devices — The Forbidden Orchard (Module 2).
 
 checkm8 BootROM exploit (A5-A11, iOS up to 18.3),

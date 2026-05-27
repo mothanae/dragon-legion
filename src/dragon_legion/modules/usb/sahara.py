@@ -1,3 +1,6 @@
+# التنين المحمول — محرك كوالكوم ساهارا / فايرهاوس (الوحدة ١.١)
+# بروتوكول ساهارا للدخول إلى وضع الطوارئ (EDL) مع استغلالات CVE-2019-14040 و CVE-2020-3620
+# الهدف: أجهزة كوالكوم عبر USB VID:05C6 PID:9008
 """Qualcomm Sahara / Firehose Engine (Module 1.1).
 
 Implements the Qualcomm Sahara protocol for EDL (Emergency Download Mode)

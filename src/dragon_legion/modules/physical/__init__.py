@@ -1,3 +1,7 @@
+# الهجمات الفيزيائية بمساعدة الأجهزة — البوتقة المحرمة (الوحدة ٧)
+# هجوم DMA عبر Thunderbolt/USB4، حقن الأعطال الكهرومغناطيسية (ChipSHOUTER)،
+# تزوير الجهد عبر VBUS (MOSFET + Raspberry Pi)، تحليل الطاقة الجانبي (CPA)،
+# الوصول المباشر لشريحة الفلاش (ISP/Chip-Off)، هجوم PMIC (ATtiny85 I2C).
 """Physical & Hardware-Assisted Attacks — The Forbidden Crucible (Module 7).
 
 Thunderbolt/USB4 DMA attack (PCIe TLPs, ATS bypass),
