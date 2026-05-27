@@ -25,15 +25,15 @@ websockets>=12.0
 cryptography>=41.0.0
 pycryptodome>=3.19.0
 
-# AI / ML (optional — for Module 9)
+# AI / ML — for Module 9 (RL scheduler, VAE protocol discovery)
 numpy>=1.26.0
 scipy>=1.12.0
 scikit-optimize>=0.9.0
-# stable-baselines3>=2.1.0  # RL
-# torch>=2.1.0                # VAE / Deep RL
+stable-baselines3>=2.1.0
+torch>=2.1.0
 
-# GPU (optional — for Module 8.1 CUDA kernels)
-# pycuda>=2024.1
+# GPU — for Module 8.1 CUDA kernels (requires CUDA toolkit + nvcc)
+pycuda>=2024.1
 
 # DNS (for OTA server redirection)
 dnslib>=0.9.0

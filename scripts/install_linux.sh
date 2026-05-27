@@ -131,6 +131,24 @@ if systemctl is-active postgresql &>/dev/null; then
     su - postgres -c "psql -c \"GRANT ALL PRIVILEGES ON DATABASE dragon_legion TO dragon_legion;\"" 2>/dev/null || true
 fi
 
+# ---------------------------------------------------------------------------
+# 9. External tools (srsRAN for LTE attacks, hashcat for GPU cracking)
+# ---------------------------------------------------------------------------
+echo -e "${GREEN}[*] Checking external tools...${NC}"
+if ! command -v srsenb &>/dev/null; then
+    echo "  srsRAN not found — install for LTE rogue cell attacks:"
+    echo "    sudo add-apt-repository ppa:srslte/releases"
+    echo "    sudo apt install srsran"
+else
+    echo "  srsRAN: $(srsenb --version 2>&1 | head -1 || echo 'installed')"
+fi
+if ! command -v hashcat &>/dev/null; then
+    echo "  hashcat not found — install for GPU-accelerated cracking:"
+    echo "    sudo apt install hashcat"
+else
+    echo "  hashcat: $(hashcat --version)"
+fi
+
 echo ""
 echo -e "${CYAN}============================================${NC}"
 echo -e "${GREEN}  Dragon Legion setup complete.${NC}"
