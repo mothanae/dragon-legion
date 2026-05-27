@@ -1,0 +1,34 @@
+# Dragon Legion — Worker Node Dockerfile
+# Celery worker with hardware access (privileged, USB passthrough)
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# System dependencies for hardware modules
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libusb-1.0-0 libusb-1.0-0-dev \
+    libssl-dev \
+    build-essential cmake \
+    usbutils pciutils i2c-tools \
+    avrdude \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application
+COPY src/ src/
+COPY config/ config/
+COPY firmware/ firmware/
+
+# Compile C extensions
+RUN if [ -d "src/c" ] && ls src/c/*.c 1>/dev/null 2>&1; then \
+    for f in src/c/*.c; do \
+        name=$(basename "$f" .c); \
+        gcc -O3 -march=native -fPIC -shared -o "src/c/${name}.so" "$f" $(python3-config --includes --ldflags); \
+    done; \
+    fi
+
+CMD ["python", "-m", "dragon_legion.main", "worker"]

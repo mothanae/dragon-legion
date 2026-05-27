@@ -1,0 +1,85 @@
+# Dragon Legion — Docker Compose
+# Central master server + Redis + PostgreSQL + optional QEMU training environment
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dragon_legion
+      POSTGRES_USER: dragon_legion
+      POSTGRES_PASSWORD: ${DL_DB_PASSWORD:-dragon_legion}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dragon_legion"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  master:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.master
+    ports:
+      - "8000:8000"
+    environment:
+      DL_DB_HOST: postgres
+      DL_DB_USER: dragon_legion
+      DL_DB_PASSWORD: ${DL_DB_PASSWORD:-dragon_legion}
+      DL_REDIS_HOST: redis
+      DL_JWT_SECRET: ${DL_JWT_SECRET:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    privileged: true  # Required for USB hardware access
+    devices:
+      - /dev/bus/usb:/dev/bus/usb  # USB passthrough
+    environment:
+      DL_DB_HOST: postgres
+      DL_DB_USER: dragon_legion
+      DL_DB_PASSWORD: ${DL_DB_PASSWORD:-dragon_legion}
+      DL_REDIS_HOST: redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Optional: QEMU training environment (for RL model training)
+  qemu-android:
+    image: dragonlegion/qemu-android:latest
+    profiles: ["training"]
+    privileged: true
+    ports:
+      - "5555:5555"  # ADB
+
+volumes:
+  pgdata:
+  redisdata:

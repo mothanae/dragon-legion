@@ -1,0 +1,53 @@
+# Dragon Legion — Python Dependencies
+# Core platform
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+celery[redis]>=5.3.0
+redis>=5.0.0
+sqlalchemy[asyncio]>=2.0.0
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.0
+
+# USB / Hardware
+pyusb>=1.2.0
+pyserial>=3.5
+pyudev>=0.24.0
+libusb1>=3.0.0
+
+# Networking (Wi-Fi, Bluetooth, NFC)
+scapy>=2.5.0
+pybluez>=0.23  # or pybluez2 >=0.46
+
+# WebSocket
+websockets>=12.0
+
+# Cryptography
+cryptography>=41.0.0
+pycryptodome>=3.19.0
+
+# AI / ML (optional — for Module 9)
+numpy>=1.26.0
+scipy>=1.12.0
+scikit-optimize>=0.9.0
+# stable-baselines3>=2.1.0  # RL
+# torch>=2.1.0                # VAE / Deep RL
+
+# GPU (optional — for Module 8.1 CUDA kernels)
+# pycuda>=2024.1
+
+# DNS (for OTA server redirection)
+dnslib>=0.9.0
+flask>=3.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pyyaml>=6.0
+
+# SDR (optional — external dependency)
+# srsran Python bindings not on PyPI; installed separately
+
+# Development / Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.26.0

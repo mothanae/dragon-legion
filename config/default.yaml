@@ -1,0 +1,103 @@
+# Dragon Legion — Default Configuration
+# Override with config/local.yaml or DL_* environment variables
+
+database:
+  host: "127.0.0.1"
+  port: 5432
+  user: "dragon_legion"
+  password: ""
+  database: "dragon_legion"
+  pool_size: 20
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  db: 0
+  password: null
+
+celery:
+  broker_url: "redis://127.0.0.1:6379/0"
+  result_backend: "redis://127.0.0.1:6379/0"
+  task_serializer: "json"
+  result_serializer: "json"
+  task_track_started: true
+  task_acks_late: true
+  worker_prefetch_multiplier: 1
+
+hardware:
+  usb_vendor_whitelist: []
+  enable_sdr: false
+  enable_nfc: false
+  enable_chipshouter: false
+  teensy_port: "/dev/ttyACM0"
+  pn532_port: "/dev/ttyUSB0"
+  chipshouter_port: "/dev/ttyACM0"
+
+security:
+  encrypt_logs: true
+  log_retention_days: 90
+  require_2fa: false
+  allowed_ips: []
+  jwt_secret: ""
+  jwt_algorithm: "HS256"
+  jwt_expire_minutes: 60
+
+master:
+  host: "0.0.0.0"
+  port: 8000
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+
+# Module-specific defaults
+modules:
+  usb:
+    sahara:
+      max_packet_size: 1048576
+      programmer_db_path: "config/programmers/"
+    hid:
+      default_pin_length: 4
+      max_bruteforce_attempts: 10000
+      inter_key_delay_ms: 50
+    fastboot:
+      oem_wordlist_path: "config/oem_commands.txt"
+
+  cellular:
+    sms:
+      default_smsc: "123456789012"
+      arfcn: 10
+      band: 0  # P-GSM-900
+      tx_power_dbm: 33
+    rogue_cell:
+      mcc: 901
+      mnc: 1
+      lac: 0x0001
+      ci: 0x0001
+
+  ios:
+    checkm8:
+      heap_spray_count: 128
+      usb_timeout_ms: 5000
+    bruteforce:
+      pin_length: 4
+      max_attempts: 10000
+      rate_limit_per_sec: 25
+
+  physical:
+    emfi:
+      probe_step_um: 50
+      delay_step_ns: 5
+      default_iterations: 200
+    cpa:
+      sample_rate: 192000
+      num_traces: 500
+
+  crypto:
+    fde:
+      scrypt_default_n: 16384
+      scrypt_default_r: 8
+      scrypt_default_p: 1
+    gpu:
+      threads_per_block: 256
+      default_iterations: 4096

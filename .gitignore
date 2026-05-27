@@ -1,0 +1,79 @@
+# Gradle
+.gradle/
+build/
+app/build/
+*.iml
+.idea/
+local.properties
+
+# Android
+*.apk
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+.navigation/
+
+# Native
+*.o
+*.obj
+*.so
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Secrets
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+credentials.*
+secrets.*
+
+# Logs
+*.log
+live-ops.log
+staging-error.log
+
+# Env
+.env
+.env.local
+.env.staging
+.env.production
+
+# IDE
+.vscode/
+*.sublime-workspace
+
+# Dragon Legion — Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+venv/
+.venv/
+
+# Dragon Legion — Docker volumes
+docker/pgdata/
+docker/redisdata/
+
+# Dragon Legion — Compiled firmware
+firmware/teensy/*.elf
+firmware/teensy/*.o
+
+# Database files (generated)
+*.db
+*.sqlite
+!docker/init-db.sql
+
+# Local configuration
+config/local.yaml
