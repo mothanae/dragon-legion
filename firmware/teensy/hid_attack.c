@@ -187,6 +187,20 @@ static char serial_buf[SERIAL_BUF_SIZE];
 static uint8_t serial_pos = 0;
 
 /* ------------------------------------------------------------------ */
+/* Variable-delay using busy-wait loop (ATmega32U4 @ 16MHz)            */
+/* 1ms = 16,000 cycles. Each loop iteration = ~4 cycles.               */
+/* ------------------------------------------------------------------ */
+
+static void delay_ms_variable(uint16_t ms) {
+    while (ms--) {
+        volatile uint16_t i;
+        for (i = 0; i < 4000; i++) {
+            __asm__ __volatile__("nop");
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* USB HID Report sending (via Arduino USB HID library or raw EP)    */
 /* ------------------------------------------------------------------ */
 
@@ -246,18 +260,18 @@ static void type_digit(char digit, uint16_t delay_ms) {
 
     /* Key press */
     hid_send_keyboard(0, keycode);
-    _delay_ms(5);
+    delay_ms_variable(5);
 
     /* Key release */
     hid_send_keyboard(0, 0);
-    _delay_ms(delay_ms);
+    delay_ms_variable(delay_ms);
 }
 
 static void type_enter(uint16_t delay_ms) {
     hid_send_keyboard(0, KEY_ENTER);
-    _delay_ms(5);
+    delay_ms_variable(5);
     hid_send_keyboard(0, 0);
-    _delay_ms(delay_ms);
+    delay_ms_variable(delay_ms);
 }
 
 static void type_pin(const char *pin, uint16_t inter_key_ms, uint16_t enter_ms) {
@@ -276,7 +290,7 @@ static void usb_reset(void) {
     /* Disable USB, wait, re-enable */
     USBCON |= (1 << USBE);  /* Keep USB enabled */
     UDCON |= (1 << DETACH); /* Detach from bus */
-    _delay_ms(500);
+    delay_ms_variable(500);
     UDCON &= ~(1 << DETACH); /* Re-attach */
 }
 
@@ -304,7 +318,7 @@ static void process_command(void) {
             uint16_t delay_ms = (uint16_t)atoi(token);
 
             hid_send_mouse_absolute(0, x, y);
-            _delay_ms(delay_ms);
+            delay_ms_variable(delay_ms);
 
             token = strtok(NULL, ",");
         }
@@ -316,13 +330,15 @@ static void process_command(void) {
     /* DELAY:500 */
     else if (strncmp(serial_buf, "DELAY:", 6) == 0) {
         uint16_t ms = (uint16_t)atoi(serial_buf + 6);
-        _delay_ms(ms);
+        delay_ms_variable(ms);
     }
 }
 
 /* ------------------------------------------------------------------ */
-/* Serial receive ISR (USART RX)                                      */
+/* Serial receive ISR (USART RX) — buffers command, main loop processes */
 /* ------------------------------------------------------------------ */
+
+static volatile uint8_t command_ready = 0;
 
 ISR(USART1_RX_vect) {
     uint8_t ch = UDR1;
@@ -330,7 +346,7 @@ ISR(USART1_RX_vect) {
     if (ch == '\r' || ch == '\n') {
         if (serial_pos > 0) {
             serial_buf[serial_pos] = '\0';
-            process_command();
+            command_ready = 1;
             serial_pos = 0;
         }
     } else if (serial_pos < SERIAL_BUF_SIZE - 1) {
@@ -373,11 +389,17 @@ int main(void) {
     /* Enable global interrupts */
     sei();
 
-    /* Main loop — commands processed in ISR */
+    /* Main loop — check for buffered commands */
     for (;;) {
+        if (command_ready) {
+            cli();
+            process_command();
+            command_ready = 0;
+            sei();
+        }
         /* Blink LED to show we're alive */
         PORTB ^= (1 << PB5);
-        _delay_ms(500);
+        delay_ms_variable(500);
     }
 
     return 0;
