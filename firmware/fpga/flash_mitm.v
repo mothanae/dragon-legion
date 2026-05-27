@@ -60,19 +60,17 @@ module flash_mitm (
     // ────────────────────────────────────────────────────────────
     // State Machine
     // ────────────────────────────────────────────────────────────
-    typedef enum logic [3:0] {
-        IDLE           = 4'd0,
-        DECODE_CMD     = 4'd1,
-        PASSTHROUGH    = 4'd2,
-        INTERCEPT_READ = 4'd3,
-        INJECT_DATA    = 4'd4,
-        WAIT_RESPONSE  = 4'd5,
-        SPI_LOAD       = 4'd6,
-        ERROR_STATE    = 4'd15
-    } state_t;
+    localparam [3:0] IDLE           = 4'd0;
+    localparam [3:0] DECODE_CMD     = 4'd1;
+    localparam [3:0] PASSTHROUGH    = 4'd2;
+    localparam [3:0] INTERCEPT_READ = 4'd3;
+    localparam [3:0] INJECT_DATA    = 4'd4;
+    localparam [3:0] WAIT_RESPONSE  = 4'd5;
+    localparam [3:0] SPI_LOAD       = 4'd6;
+    localparam [3:0] ERROR_STATE    = 4'd15;
 
-    state_t state = IDLE;
-    state_t next_state = IDLE;
+    reg [3:0] state = IDLE;
+    reg [3:0] next_state = IDLE;
 
     // ────────────────────────────────────────────────────────────
     // Registers
