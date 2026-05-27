@@ -54,26 +54,3 @@ staging-error.log
 .vscode/
 *.sublime-workspace
 
-# Dragon Legion — Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-dist/
-venv/
-.venv/
-
-# Dragon Legion — Docker volumes
-docker/pgdata/
-docker/redisdata/
-
-# Dragon Legion — Compiled firmware
-firmware/teensy/*.elf
-firmware/teensy/*.o
-
-# Database files (generated)
-*.db
-*.sqlite
-!docker/init-db.sql
-
-# Local configuration
-config/local.yaml

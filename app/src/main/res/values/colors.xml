@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="surface_dark">#FF1A1A2E</color>
+    <color name="accent_red">#FFE94560</color>
+    <color name="accent_purple">#FF533483</color>
+    <color name="status_green">#FF00E676</color>
+    <color name="status_amber">#FFFFAB00</color>
+    <color name="status_red">#FFFF1744</color>
+    <color name="text_primary">#FFE0E0E0</color>
+    <color name="text_secondary">#FFA0A0A0</color>
+    <color name="bg_dark">#FF0A0A0A</color>
+    <color name="bg_card">#FF1E1E2E</color>
+    <color name="bg_card_border">#FF333355</color>
+</resources>

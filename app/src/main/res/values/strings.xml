@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CellLink</string>
+    <string name="mode_select_title">Select Mode</string>
+    <string name="mode_bts_title">TOWER MODE</string>
+    <string name="mode_bts_desc">Turn this device into a cellular base station. Other devices can connect to it directly without a carrier network.</string>
+    <string name="mode_ue_title">DEVICE MODE</string>
+    <string name="mode_ue_desc">Connect to a nearby CellLink tower. Make calls and send messages directly device-to-device.</string>
+    <string name="btn_start_tower">Start Tower</string>
+    <string name="btn_stop_tower">Stop Tower</string>
+    <string name="btn_scan_connect">Scan &amp; Connect</string>
+    <string name="btn_call">Call</string>
+    <string name="btn_end_call">End Call</string>
+    <string name="status_tower_running">Tower broadcasting on ARFCN %1$d (%2$.1f MHz)</string>
+    <string name="status_connected">Connected to tower: %1$s</string>
+    <string name="status_scanning">Scanning for towers…</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_in_call">In call</string>
+    <string name="status_error">Error: %1$s</string>
+    <string name="permission_root_required">Root access is required for modem control</string>
+    <string name="permission_diag_required">DIAG port access required. Dial *#0808# to enable.</string>
+    <string name="warning_legal">This software is for authorized security research and lab testing only. Operating a transmitter without a license is illegal in most jurisdictions. Use only in a Faraday cage or with proper authorization.</string>
+    <string name="freq_label">ARFCN:</string>
+    <string name="band_label">Band:</string>
+    <string name="signal_label">Signal:</string>
+    <string name="dbm_label">%1$d dBm</string>
+    <string name="root_required_title">Root Access Required</string>
+    <string name="root_required_msg">CellLink needs root access to control the modem. The app detected:\n\nDevice: %1$s\nModem: %2$s\nBackend: %3$s\nRoot: NOT FOUND\n\nPlease root your device and grant superuser access.</string>
+    <string name="root_attempting">Attempting to gain root access…</string>
+    <string name="root_failed">Automatic root failed. Manual root required.\n\n%1$s</string>
+    <string name="root_success">Root access granted!</string>
+    <string name="btn_try_root">Try Root</string>
+    <string name="btn_continue_anyway">Continue Without Root</string>
+</resources>
