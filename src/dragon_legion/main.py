@@ -114,11 +114,21 @@ def cmd_fuzz(args):
     print(f"[*] Fuzzing device: {args.device}")
     print("[*] Searching for fastboot device...")
 
-    dev = usb.core.find(idVendor=0x18D1, idProduct=0xD00D)
-    if dev is None:
-        dev = usb.core.find(idVendor=0x18D1, idProduct=0x4EE0)
-    if dev is None:
-        print("[!] No fastboot device found. Connect a device in fastboot mode.")
+    try:
+        dev = usb.core.find(idVendor=0x18D1, idProduct=0xD00D)
+        if dev is None:
+            dev = usb.core.find(idVendor=0x18D1, idProduct=0x4EE0)
+        if dev is None:
+            print("[!] No fastboot device found. Connect a device in fastboot mode.")
+            return
+    except (usb.core.NoBackendError, Exception) as e:
+        print(f"[!] USB backend unavailable: {e}")
+        print("[!] Install libusb: https://github.com/libusb/libusb/wiki/Windows")
+        print("[*] Running OEM wordlist analysis offline...")
+        from dragon_legion.modules.usb.fastboot import OEM_COMMAND_WORDLIST, FUZZ_ARGUMENTS
+        total = len(OEM_COMMAND_WORDLIST) * len(FUZZ_ARGUMENTS)
+        print(f"[+] Wordlist: {len(OEM_COMMAND_WORDLIST)} commands x {len(FUZZ_ARGUMENTS)} args = {total} test cases")
+        print("[+] Connect fastboot device via USB and re-run for live fuzzing.")
         return
 
     print(f"[+] Fastboot device found: {dev.idVendor:04X}:{dev.idProduct:04X}")
