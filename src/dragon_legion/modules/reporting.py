@@ -325,10 +325,17 @@ class ReplaySystem:
             "def replay():",
         ]
         for i, step in enumerate(steps):
-            lines.append(f"    # Step {i + 1}: {step.get('module')}.{step.get('action')}")
-            lines.append(f"    key = logger.start_action('{step.get('module', '')}', '{step.get('action', '')}')")
-            # In production: embed actual command calls
-            lines.append(f"    # ... execute {step.get('module')}.{step.get('action')} with params {step.get('params', {})}")
+            mod = step.get('module', '')
+            act = step.get('action', '')
+            params_repr = repr(step.get('params', {}))
+            lines.append(f"    # Step {i + 1}: {mod}.{act}")
+            lines.append(f"    key = logger.start_action('{mod}', '{act}')")
+            lines.append(f"    from dragon_legion.core.worker import celery_app")
+            lines.append(f"    task = celery_app.send_task(")
+            lines.append(f"        'dragon_legion.modules.{mod}.execute',")
+            lines.append(f"        args=['replay', r'{attack_id}', '{act}', {params_repr}],")
+            lines.append(f"    )")
+            lines.append(f"    task.get(timeout=300)")
             lines.append(f"    logger.end_action(key, status='success')")
             lines.append("    time.sleep(0.5)")
             lines.append("")

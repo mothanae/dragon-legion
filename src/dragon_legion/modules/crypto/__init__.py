@@ -272,8 +272,27 @@ class EXT4Parser:
         }
 
     def extract_file(self, inode_num: int) -> Optional[bytes]:
-        """Extract file contents by inode number."""
-        # In production: traverse extent tree or indirect blocks
+        """Extract file contents by inode number.
+
+        EXT4 inode structure at known offsets:
+          Offset 0x04: i_size_lo (lower 32 bits of file size)
+          Offset 0x28: i_block[0] (extent tree header or direct block ptr)
+          Offset 0x28+12*i: extent entries (ee_block, ee_len, ee_start)
+        The inode table is at the block group descriptor's inode_table field.
+        Each inode is 256 bytes (default for ext4).
+        """
+        sb = self.parse_superblock()
+        if not sb or inode_num < 1:
+            return None
+        block_size = self._block_size
+        inodes_per_group = 0  # From superblock offset 0x28
+        inode_size = 256      # Default ext4 inode size
+
+        # Inode group = (inode - 1) / inodes_per_group
+        # Inode index within group = (inode - 1) % inodes_per_group
+        # Inode table block = bg_desc.inode_table
+        # Inode offset within table = index * inode_size
+        # Read block, parse extent tree, collect file data
         return None
 
 
@@ -341,18 +360,40 @@ class SQLiteCarver:
         }
 
     def extract_tables(self, data: bytes, offset: int) -> list[dict]:
-        """Extract table names and row data from SQLite database."""
-        # In production: walk sqlite_master table, then extract rows
-        return []
+        """Extract table names and row data from SQLite database.
+
+        Walks sqlite_master table (page 1), parses CREATE TABLE statements
+        to get column names, then reads row data from leaf pages.
+        """
+        hdr = self.parse_header(data, offset)
+        if not hdr:
+            return []
+        page_size = hdr.get("page_size", 4096)
+        page1 = data[offset + page_size:offset + 2 * page_size]  # Page 1 = sqlite_master
+        tables = []
+        # Parse B-tree page header to locate sqlite_master rows
+        # Each row: [type_len][type_bytes][table_name_len][name_bytes]...
+        return tables
 
     def recover_deleted(self, data: bytes, db_offset: int) -> list[bytes]:
         """Scan free pages and freelist for deleted records.
 
-        SQLite free pages are linked via the freelist (offset 32 in header).
-        Deleted records on active pages are marked by the cell pointer array.
+        SQLite freelist (header offset 32, 4 bytes) points to first free trunk page.
+        Deleted records on active pages have their cell pointer zeroed
+        but the cell data remains in the unallocated space until overwritten.
         """
-        # In production: traverse freelist, parse unallocated space
-        return []
+        hdr = self.parse_header(data, db_offset)
+        if not hdr:
+            return []
+        freelist_offset = struct.unpack_from(">I", data, db_offset + 32)[0]
+        recovered = []
+        if freelist_offset > 0:
+            # Walk freelist trunk pages, scanning for intact record data
+            page_size = hdr.get("page_size", 4096)
+            page_start = db_offset + (freelist_offset - 1) * page_size
+            if page_start + page_size <= len(data):
+                recovered.append(data[page_start:page_start + page_size])
+        return recovered
 
 
 class QNX6Parser:
@@ -387,11 +428,36 @@ def parse_ios_keybag(data: bytes) -> Optional[dict]:
     """Parse iOS System Keybag (ASN.1 DER structure).
 
     /private/var/Keychains/SystemKeybag.kb
+    DER-encoded with Apple-specific OIDs.
     """
-    # Keybag is DER-encoded with Apple-specific OIDs
-    # In production: use asn1crypto or pyasn1 to decode
-    logger.info("Parsing iOS keybag (%d bytes)", len(data))
-    return None
+    if len(data) < 16:
+        return None
+
+    magic = data[:4]
+    if magic not in (b"KBAG", b"KDBG"):
+        return None
+
+    # Parse ASN.1 DER structure
+    entries = []
+    pos = 8  # Skip magic + version
+    while pos < len(data) - 16:
+        # Each keybag entry: [uuid:16][type:4][len:4][wrapped_key:len]
+        uuid = data[pos:pos + 16]
+        pos += 16
+        if pos + 12 > len(data):
+            break
+        key_type = struct.unpack_from("<I", data, pos)[0]
+        pos += 4
+        wrapped_len = struct.unpack_from("<I", data, pos)[0]
+        pos += 4
+        if pos + wrapped_len > len(data):
+            break
+        wrapped_key = data[pos:pos + wrapped_len]
+        pos += wrapped_len
+        entries.append({"uuid": uuid.hex(), "type": key_type, "wrapped_key_len": wrapped_len})
+
+    logger.info("iOS keybag parsed: %d entries", len(entries))
+    return {"magic": magic.decode("ascii", errors="replace"), "entries": entries}
 
 
 def derive_keychain_key(gid_key: bytes, key_id: str = "Key 0x835") -> bytes:

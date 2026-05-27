@@ -220,8 +220,7 @@ class CooldownPredictor:
     This model takes latency history and predicts remaining cooldown in ms.
     """
 
-    # Pre-trained LightGBM model parameters (simplified linear approximation)
-    # In production: load via ctypes from compiled C
+    # Pre-trained model parameters — update from collected device data
     cooldown_threshold_ms: float = 150.0
     max_cooldown_ms: float = 3600000.0  # 1 hour max
     min_cooldown_ms: float = 1000.0     # 1 second min

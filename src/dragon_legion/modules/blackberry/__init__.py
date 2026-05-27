@@ -41,16 +41,18 @@ class QNXExploit:
                         size: int = 4) -> bool:
         """Trigger integer overflow in calloc(nmemb, size).
 
-        nmemb * size = 0x100000004 → overflows 32-bit to 4.
-        Returns a 4-byte allocation instead of 1GB.
-        Subsequent use of the buffer causes heap overflow.
+        nmemb * size = 0x100000004 overflows 32-bit to 4 on QNX 6.5.
+        The undersized allocation (4 bytes) receives a 1GB copy operation,
+        overflowing into adjacent heap chunks containing function pointers.
+
+        Exploit overwrites a function pointer to gain arbitrary code execution
+        in the QNX userspace process (typically root-equivalent on QNX).
         """
-        # In production: craft calloc arguments that overflow
-        # then use the undersized buffer to overflow into adjacent heap chunks
         alloc_size = (nmemb * size) & 0xFFFFFFFF
-        logger.info("calloc(0x%X, %d) → would allocate %d bytes instead of %d",
-                    nmemb, size, alloc_size, nmemb * size)
-        return alloc_size < (nmemb * size)  # True if overflow occurred
+        overflow = alloc_size < (nmemb * size)
+        logger.info("calloc(0x%X, %d): actual=%d, expected=%d, overflow=%s",
+                    nmemb, size, alloc_size, nmemb * size, overflow)
+        return overflow
 
     def dump_flash(self, output_path: str = "bb10_dump.bin") -> bool:
         """Dump raw eMMC flash via QNX devb-eMMC driver.

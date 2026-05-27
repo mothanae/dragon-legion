@@ -108,9 +108,29 @@ def cmd_diagnose(args):
 
 def cmd_fuzz(args):
     """Start protocol fuzzing on a device."""
+    from dragon_legion.modules.usb.fastboot import OEMFuzzer, FastbootSession
+    import usb
+
     print(f"[*] Fuzzing device: {args.device}")
-    print("[*] Starting OEM command fuzzer...")
-    # In production: detect device, run OEM fuzzer
+    print("[*] Searching for fastboot device...")
+
+    dev = usb.core.find(idVendor=0x18D1, idProduct=0xD00D)
+    if dev is None:
+        dev = usb.core.find(idVendor=0x18D1, idProduct=0x4EE0)
+    if dev is None:
+        print("[!] No fastboot device found. Connect a device in fastboot mode.")
+        return
+
+    print(f"[+] Fastboot device found: {dev.idVendor:04X}:{dev.idProduct:04X}")
+    with FastbootSession(dev) as session:
+        session.enumerate_device()
+        print(f"[+] Device: {session.device_info.product} (serial: {session.device_info.serial})")
+        fuzzer = OEMFuzzer(session)
+        results = fuzzer.fuzz()
+        interesting = [r for r in results if r["status"] == "OKAY" and r["length"] > 10]
+        print(f"[+] Fuzzing complete. {len(results)} commands tested, {len(interesting)} interesting responses.")
+        for r in interesting[:10]:
+            print(f"    {r['command']:40s} -> {r['response'][:60]}")
 
 
 def main():
