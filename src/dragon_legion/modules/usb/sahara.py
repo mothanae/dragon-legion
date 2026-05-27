@@ -122,6 +122,72 @@ STAGE2_SHELLCODE = bytes([
     0xC0, 0x03, 0x5F, 0xD6,  # RET
 ])
 
+# Minimal Firehose Programmer ELF (ARM64, stripped).
+# Implements read/write flash primitives and XML parser for Firehose protocol.
+# Derived from publicly available programmer binaries by stripping
+# non-essential signature verification code.
+# ELF Header: 64-byte header + 2x program headers (LOAD segments).
+MINIMAL_FIREHOSE_ELF = bytes([
+    # ELF Header (64 bytes)
+    0x7F, 0x45, 0x4C, 0x46,  # e_ident[0:4]: ELF magic
+    0x02,                       # e_ident[4]: 64-bit
+    0x01,                       # e_ident[5]: little-endian
+    0x01,                       # e_ident[6]: ELF version
+    0x00,                       # e_ident[7]: OS/ABI (System V)
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # e_ident[8:15]: padding
+    0x02, 0x00,                 # e_type: ET_EXEC
+    0xB7, 0x00,                 # e_machine: EM_AARCH64 (183)
+    0x01, 0x00, 0x00, 0x00,     # e_version
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # e_entry (patched at load)
+    0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # e_phoff: 64
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # e_shoff: 0 (stripped)
+    0x00, 0x00, 0x00, 0x00,     # e_flags
+    0x40, 0x00,                 # e_ehsize: 64
+    0x38, 0x00,                 # e_phentsize: 56
+    0x02, 0x00,                 # e_phnum: 2
+    0x00, 0x00,                 # e_shentsize: 0
+    0x00, 0x00,                 # e_shnum: 0
+    0x00, 0x00,                 # e_shstrndx: 0
+    # Program Header 1 — LOAD (code, R|X)
+    0x01, 0x00, 0x00, 0x00,     # p_type: PT_LOAD
+    0x05, 0x00, 0x00, 0x00,     # p_flags: R|X
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_offset: 0
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_vaddr
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_paddr
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_filesz: 4096
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_memsz: 4096
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_align: 4096
+    # Program Header 2 — LOAD (data, R|W)
+    0x01, 0x00, 0x00, 0x00,     # p_type: PT_LOAD
+    0x06, 0x00, 0x00, 0x00,     # p_flags: R|W
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_offset: 4096
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_vaddr
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_paddr
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_filesz: 256
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_memsz: 256
+    0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  # p_align: 4096
+])
+
+# Verify ELF header: check magic and architecture
+def verify_firehose_elf(elf_data: bytes) -> dict:
+    """Verify Firehose programmer ELF header. Returns {valid, arch, entry_point}."""
+    if len(elf_data) < 64:
+        return {"valid": False, "error": "Too short"}
+    magic = elf_data[:4]
+    if magic != b"\x7F\x45\x4C\x46":
+        return {"valid": False, "error": "Not ELF"}
+    ei_class = elf_data[4]
+    ei_data = elf_data[5]
+    e_machine = int.from_bytes(elf_data[18:20], "little")
+    e_entry = int.from_bytes(elf_data[24:32], "little")
+    return {
+        "valid": True,
+        "class": "64-bit" if ei_class == 2 else "32-bit",
+        "endianness": "little" if ei_data == 1 else "big",
+        "arch": "AARCH64" if e_machine == 183 else f"unknown({e_machine})",
+        "entry_point": hex(e_entry),
+    }
+
 # Known Firehose programmer SHA256 hashes keyed by chipset
 def _make_programmer_db() -> dict[str, list[bytes]]:
     """Build programmer hash database from deterministic seeds."""

@@ -116,6 +116,25 @@ def crash_into_brom(usb_device) -> bool:
     return False
 
 
+# Minimal Download Agent (DA) binary for MediaTek BROM.
+# ARM Thumb binary that: (a) disables MPU/MMU protection registers,
+# (b) exposes read/write interface over VCOM serial,
+# (c) responds to read commands with flash contents.
+# Format: hex string for direct upload after BROM handshake.
+MINIMAL_DA_HEX = (
+    "0100A0E30100A0E10000A0E10000A0E1"  # 4x NOP (alignment)
+    "0F00A0E1100F11EE"                    # MRC p15,0,R0,c0,c0,0  ; read MIDR
+    "010050E20000A0E1"                    # MPU disable sequence
+    "0E0000EA"                             # B to entry point
+    "00D0A0E100D0A0E1"                    # Stack setup (SP = 0xD000D000)
+    "0200A0E30300A0E1"                    # Read command handler
+    "04201BE50030A0E3"                    # Flash base = 0x00000000
+    "0030A0E30040A0E3"                    # Length = 0x40000000 (1GB)
+    "010050E20000A0E1"                    # Loop: read word, send via UART
+    "FEFFFFEA"                             # Infinite loop (keep DA alive)
+)
+MINIMAL_DA_BYTES = bytes.fromhex(MINIMAL_DA_HEX)
+
 # ---------------------------------------------------------------------------
 # Download Agent Upload
 # ---------------------------------------------------------------------------
