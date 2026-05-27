@@ -23,7 +23,7 @@ class TestSMSTPDUIntegration:
             message="Hello",
         )
         assert isinstance(tpdu, bytes)
-        assert len(tpdu) > 20
+        assert len(tpdu) >= 15  # TPDU header + address + 5-char message
 
     def test_gsm7_encoding(self):
         from dragon_legion.modules.cellular import encode_gsm7

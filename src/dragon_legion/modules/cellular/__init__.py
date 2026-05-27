@@ -59,7 +59,7 @@ def build_sms_submit_tpdu(
     first_octet = (tp_mti & 0x03) | (tp_pid & 0xC0)
 
     # Destination address
-    da, da_type = encode_address(destination)
+    da = encode_address(destination)
 
     # User data (GSM 7-bit encoding)
     if tp_dcs == TP_DCS_7BIT:

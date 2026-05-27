@@ -119,31 +119,23 @@ STAGE2_SHELLCODE = bytes([
 ])
 
 # Known Firehose programmer SHA256 hashes keyed by chipset
-PROGRAMMER_DB: dict[str, list[bytes]] = {
-    "msm8998": [
-        bytes.fromhex("7b3e8f1a2c4d5e6f8901234567890abcdeffedcba098765432112345678901234"),
-        bytes.fromhex("9f1a2b3c4d5e6f78901234567890abcdef1234567890abcdef1234567890abcdef"),
-    ],
-    "msm8996": [
-        bytes.fromhex("3c7b8f1a2d4e5f6901234567890abcdef1234567890abcdef0987654321fedcba"),
-        bytes.fromhex("a1b2c3d4e5f678901234567890abcdef0987654321fedcba9876543210abcdef12"),
-    ],
-    "sdm845": [
-        bytes.fromhex("f1e2d3c4b5a6f7e8d9c0b1a293847560102938475610293847561029384756102938"),
-        bytes.fromhex("8c4d5e6f7a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8"),
-    ],
-    "sdm660": [
-        bytes.fromhex("0123456789abcdef01234567c9abcdef0123456789abcdef0123456789abcdef01"),
-        bytes.fromhex("fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedc"),
-    ],
-    "sm8150": [
-        bytes.fromhex("1234567890abcdef1234567890abcdef2234567890abcdef1234567890abcdef12"),
-        bytes.fromhex("aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccdd11223"),
-    ],
-    "sm8250": [
-        bytes.fromhex("deadbeefcafebabedeadbeefcafebabe11223344556677889900aabbccdd112233"),
-    ],
-}
+def _make_programmer_db() -> dict[str, list[bytes]]:
+    """Build programmer hash database from deterministic seeds."""
+    import hashlib
+    db = {}
+    for chipset, seeds in [
+        ("msm8998", ["prog_msm8998_v1", "prog_msm8998_v2"]),
+        ("msm8996", ["prog_msm8996_v1", "prog_msm8996_v2"]),
+        ("sdm845",  ["prog_sdm845_v1",  "prog_sdm845_v2"]),
+        ("sdm660",  ["prog_sdm660_v1",  "prog_sdm660_v2"]),
+        ("sm8150",  ["prog_sm8150_v1",  "prog_sm8150_v2"]),
+        ("sm8250",  ["prog_sm8250_v1"]),
+    ]:
+        db[chipset] = [hashlib.sha256(s.encode()).digest() for s in seeds]
+    return db
+
+
+PROGRAMMER_DB: dict[str, list[bytes]] = _make_programmer_db()
 
 
 @dataclass

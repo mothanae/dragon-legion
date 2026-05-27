@@ -136,7 +136,7 @@ class SISExploit:
     filenames in backup archives. Filenames containing ".." can overwrite
     system DLLs.
 
-    Target: overwrite E:\System\Libs\efsrv.dll with a patched version
+    Target: overwrite E:\\System\\Libs\\efsrv.dll with a patched version
     that disables capability checks.
     """
 
@@ -151,7 +151,7 @@ class SISExploit:
         By embedding ".." sequences, we can write outside the backup
         restore directory.
 
-        Example: "..\\System\\Libs\\efsrv.dll" → overwrites C:\System\Libs\efsrv.dll
+        Example: "..\\\\System\\\\Libs\\\\efsrv.dll" overwrites C:\\System\\Libs\\efsrv.dll
         """
         sis = bytearray(self.SIS_MAGIC)
         # SIS header (simplified — full format is more complex)
